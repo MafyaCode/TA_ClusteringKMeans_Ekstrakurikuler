@@ -1,0 +1,12 @@
+sequenceDiagram
+    participant Java GUI (Frontend)
+    participant Python API (Backend)
+    participant K-Means Model
+
+    Java GUI (Frontend)->>+Python API (Backend): Kirim POST Request (/recommend) dengan data minat (JSON)
+    Python API (Backend)->>Python API (Backend): Preprocess data minat (Feature Engineering)
+    Python API (Backend)->>K-Means Model: Muat model / Lakukan prediksi cluster
+    K-Means Model-->>Python API (Backend): Kembalikan label cluster
+    Python API (Backend)->>Python API (Backend): Tentukan rekomendasi berdasarkan cluster
+    Python API (Backend)-->>-Java GUI (Frontend): Kembalikan Response dengan rekomendasi (JSON)
+    Java GUI (Frontend)->>Java GUI (Frontend): Tampilkan rekomendasi
