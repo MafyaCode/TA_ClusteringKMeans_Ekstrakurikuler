@@ -1,12 +1,114 @@
-sequenceDiagram
-    participant Java GUI (Frontend)
-    participant Python API (Backend)
-    participant K-Means Model
+classDiagram
+    direction LR
 
-    Java GUI (Frontend)->>+Python API (Backend): Kirim POST Request (/recommend) dengan data minat (JSON)
-    Python API (Backend)->>Python API (Backend): Preprocess data minat (Feature Engineering)
-    Python API (Backend)->>K-Means Model: Muat model / Lakukan prediksi cluster
-    K-Means Model-->>Python API (Backend): Kembalikan label cluster
-    Python API (Backend)->>Python API (Backend): Tentukan rekomendasi berdasarkan cluster
-    Python API (Backend)-->>-Java GUI (Frontend): Kembalikan Response dengan rekomendasi (JSON)
-    Java GUI (Frontend)->>Java GUI (Frontend): Tampilkan rekomendasi
+    package "Java GUI (Client)" {
+        class AplikasiGUI {
+            +Stage primaryStage
+            +Scene currentScene
+            +start(Stage) void
+            +showScene(Scene) void
+        }
+        class ViewController {
+            -Object viewElement
+            -ApiClient apiClient
+            +handleInputMinat() void
+            +tampilkanRekomendasi(List~EkstrakurikulerData~) void
+            +kirimMinatKeApi() void
+        }
+        class ApiClient {
+            -HttpClient httpClient
+            -ObjectMapper objectMapper
+            +kirimMinat(MinatSiswaData) Response
+            +dapatkanRekomendasi(int idSiswa) List~EkstrakurikulerData~
+        }
+        class DataModel {
+            <<POJO>>
+            +int idSiswa
+            +String namaEkstra
+            +String deskripsiEkstra
+            +List~String~ daftarMinat
+            +getters()
+            +setters()
+        }
+        AplikasiGUI --> ViewController : manages
+        ViewController --> ApiClient : uses
+        ApiClient --> DataModel : uses (serialization/deserialization)
+        ViewController --> DataModel : displays/updates
+    }
+
+    package "Python API (Server)" {
+        class APIController {
+            -RecommendationService recommendationService
+            +handle_get_rekomendasi(id_siswa) JSONResponse
+            +handle_post_minat(data_minat) JSONResponse
+            +handle_manage_model() JSONResponse
+        }
+        class RecommendationService {
+            -KMeansModel kmeansModel
+            -DatabaseManager dbManager
+            -FeatureExtractor featureExtractor
+            +generate_recommendations(id_siswa) List~Ekstrakurikuler~
+            +generate_recommendations_from_interest(data_minat) List~Ekstrakurikuler~
+        }
+        class FeatureExtractor {
+            +extract_features(data_minat_mentah) numpy.array
+        }
+        class KMeansModel {
+            -object model
+            -int n_clusters
+            +load_model(path) void
+            +predict_cluster(feature_vector) int
+            +train_model(data) void
+        }
+        class DatabaseManager {
+            -Connection connection
+            +get_siswa(id_siswa) Siswa
+            +simpan_minat(id_siswa, minat) void
+            +get_ekstrakurikuler_by_cluster(cluster_id) List~Ekstrakurikuler~
+            +get_all_ekstrakurikuler() List~Ekstrakurikuler~
+            +simpan_model(model, path) void
+            +muat_model(path) object
+        }
+        APIController --> RecommendationService : uses
+        RecommendationService --> FeatureExtractor : uses
+        RecommendationService --> KMeansModel : uses
+        RecommendationService --> DatabaseManager : uses
+        KMeansModel --> DatabaseManager : uses (load/save model)
+    }
+
+    package "Entitas Konseptual" {
+      class Siswa {
+          +int idSiswa
+          +String nama
+          +String kelas
+      }
+      class MinatSiswa {
+          +int idSiswa
+          +List~String~ daftarMinat
+          +numpy.array vektorMinat
+      }
+      class Ekstrakurikuler {
+          +int idEkstra
+          +String nama
+          +String deskripsi
+          +String kategori
+      }
+      class Rekomendasi {
+          +int idSiswa
+          +int idEkstra
+          +float skorRelevansi
+      }
+    }
+
+    ApiClient..> APIController : communicates via HTTP/JSON
+    RecommendationService..> Siswa : uses data 
+    RecommendationService..> MinatSiswa : uses data
+    RecommendationService..> Ekstrakurikuler : uses data
+    DatabaseManager..> Siswa : manages
+    DatabaseManager..> MinatSiswa : manages
+    DatabaseManager..> Ekstrakurikuler : manages 
+
+    note for ApiClient "Handles HTTP requests to Python API\nUses Jackson/Gson for JSON"
+    note for APIController "Receives HTTP requests (Flask/FastAPI)\nReturns JSON responses"
+    note for KMeansModel "Encapsulates scikit-learn KMeans\nPredicts cluster ID"
+    note for FeatureExtractor "Converts raw interests (e.g., selections)\ninto numerical feature vector for K-Means"
